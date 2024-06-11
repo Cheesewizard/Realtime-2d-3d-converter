@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2d992c9bfe9b4bd489a5c36162a89378, type: 3}
   m_Name: MidasDatabase
   m_EditorClassIdentifier: 
-  <ModelType>k__BackingField: 2
-  previousModelType: 2
+  <ModelType>k__BackingField: 0
+  previousModelType: 0

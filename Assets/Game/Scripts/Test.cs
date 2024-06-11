@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Doji.AI.Depth;
 using Game.Scripts.Configs;
+using Unity.Sentis;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Video;
@@ -43,7 +44,11 @@ namespace Game.Scripts
 
 			try
 			{
-				midas = new Midas(modelDatabase.ModelType);
+				midas = new Midas(modelDatabase.ModelType)
+				{
+					NormalizeDepth = true,
+					Backend = BackendType.CPU
+				};
 			}
 			catch
 			{
@@ -57,10 +62,12 @@ namespace Game.Scripts
 
 		private void SetupRenderTexture()
 		{
-			width = (int) framesVideoPlayer.width / 2;
+			width = (int) framesVideoPlayer.width;
 			height = (int) framesVideoPlayer.height;
 
-			videoRenderTexture = new RenderTexture(width, height, GraphicsFormat.B8G8R8_UNorm, GraphicsFormat.None);
+			videoRenderTexture = new RenderTexture(width, height, GraphicsFormat.R8G8B8A8_UNorm, GraphicsFormat.D32_SFloat_S8_UInt);
+			videoRenderTexture.Create();
+			framesVideoPlayer.targetTexture = videoRenderTexture;
 		}
 
 		private void HandleModelChanged()
@@ -90,14 +97,33 @@ namespace Game.Scripts
 
 		private void HandleFrameReady(VideoPlayer source, long frameidx)
 		{
-			Debug.Log("Processing new frame");
+			var previous = RenderTexture.active;
+			RenderTexture.active = videoRenderTexture;
 
-			midas.EstimateDepth(videoRenderTexture, false);
+			var tex = new Texture2D(width, height, TextureFormat.RGB24, false);
+			tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+			tex.Apply();
+
+			RenderTexture.active = previous;
+
+			midas.EstimateDepth(tex);
+
 			var depthMap = midas.Result;
+			if (depthMap != null)
+			{
+				videoRenderBufferQueue.Enqueue((videoRenderTexture, depthMap));
+			}
+			else
+			{
+				Debug.LogError("Failed to generate depth map");
+			}
+		}
 
-			videoRenderBufferQueue.Enqueue((ResizeRenderTexture(videoRenderTexture, depthMap.width, depthMap.height), depthMap));
-
-			Debug.Log("Finished Processing new frame");
+		// Helper method to save render texture to file (for debugging)
+		private void SaveRenderTextureToFile(Texture2D texture, string fileName)
+		{
+			byte[] bytes = texture.EncodeToPNG();
+			System.IO.File.WriteAllBytes(Application.dataPath + $"/{fileName}", bytes);
 		}
 
 		// Method to resize texture
@@ -115,12 +141,7 @@ namespace Game.Scripts
 			if (videoRenderBufferQueue.Count >= bufferSize)
 			{
 				var (mainTexture, depth) = videoRenderBufferQueue.Dequeue();
-				// var (leftEyeBuffer, leftDepth) = leftEyeBufferQueue.Dequeue();s
-				// var (rightEyeBuffer, rightDepth) =  rightEyeBufferQueue.Dequeue();
-
 				stereoscopic3dCameras.UpdateCameraShader(mainTexture, depth);
-				// stereoscopic3dCameras.UpdateLeftCamera(leftEyeBuffer, leftDepth);
-				// stereoscopic3dCameras.UpdateRightCameras(rightEyeBuffer, rightDepth);
 			}
 		}
 
@@ -150,38 +171,6 @@ namespace Game.Scripts
 			scaledTexture.Apply();
 
 			return scaledTexture;
-		}
-
-		private Texture2D ApplyDepthToVideo(Texture2D videoTexture, Texture2D depthMap)
-		{
-			// Create a new texture with the same dimensions as the video frame
-			// Create a new texture with the same dimensions as the video frame
-			var depthEnhancedTexture = new Texture2D(videoTexture.width, videoTexture.height);
-
-			// Get pixels from video texture
-			Color[] videoPixels = videoTexture.GetPixels();
-
-			// Apply depth map to the alpha channel of the video texture
-			for (int i = 0; i < videoPixels.Length; i++)
-			{
-				// Calculate UV coordinates for depth map based on current pixel position in video texture
-				float u = (float)(i % videoTexture.width) / videoTexture.width;
-				float v = (float)(i / videoTexture.width) / videoTexture.height;
-
-				// Get depth value from depth map using bilinear filtering
-				Color depthPixel = depthMap.GetPixelBilinear(u, v);
-				float depthValue = depthPixel.r;
-
-				// Set alpha channel of video pixel to depth value
-				Color videoColor = videoPixels[i];
-				videoPixels[i] = new Color(videoColor.r, videoColor.g, videoColor.b, depthValue);
-			}
-
-			// Set pixels to depth-enhanced texture
-			depthEnhancedTexture.SetPixels(videoPixels);
-			depthEnhancedTexture.Apply();
-
-			return depthEnhancedTexture;
 		}
 
 		private void OnDestroy()

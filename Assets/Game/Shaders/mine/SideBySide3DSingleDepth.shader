@@ -1,12 +1,12 @@
 Shader "Custom/SideBySide3DSingleDepth"
 {
-  Properties
+    Properties
     {
         _MainTex ("Main Texture", 2D) = "white" {}
         _DepthTex ("Depth Texture", 2D) = "white" {}
-        _LeftShift ("Left Eye Shift", Float) = 0.02
-        _RightShift ("Right Eye Shift", Float) = -0.02
-        _DepthFactor ("Depth Factor", Float) = 0.02
+        _LeftShift ("Left Eye Shift", Range(-0.1, 0.1)) = 0.02
+        _RightShift ("Right Eye Shift", Range(-0.1, 0.1)) = -0.02
+        _DepthFactor ("Depth Factor", Range(0, 1)) = 0.02
     }
     SubShader
     {
@@ -49,25 +49,23 @@ Shader "Custom/SideBySide3DSingleDepth"
             float4 frag (v2f i) : SV_Target
             {
                 float2 uv = i.texcoord;
-                float4 color;
-
-                // Sample depth
+                // Sample normalized depth from red channel
                 float depth = tex2D(_DepthTex, uv).r;
 
+                // Adjust UVs for left and right eye views
                 if (uv.x < 0.5)
                 {
-                    // Left eye
-                    uv.x = uv.x * 2.0 + _LeftShift * depth * _DepthFactor;
-                    color = tex2D(_MainTex, uv);
+                    uv.x = clamp(uv.x * 2.0 + (_LeftShift * depth * _DepthFactor), 0.0, 1.0);
                 }
                 else
                 {
-                    // Right eye
-                    uv.x = (uv.x - 0.5) * 2.0 + _RightShift * depth * _DepthFactor;
-                    color = tex2D(_MainTex, uv);
+                    uv.x = clamp((uv.x - 0.5) * 2.0 + (_RightShift * depth * _DepthFactor), 0.0, 1.0);
                 }
 
-                return color;
+                // Clamp UV coordinates to avoid sampling out of bounds
+                uv = clamp(uv, 0.0, 1.0);
+
+                return tex2D(_MainTex, uv);
             }
             ENDCG
         }

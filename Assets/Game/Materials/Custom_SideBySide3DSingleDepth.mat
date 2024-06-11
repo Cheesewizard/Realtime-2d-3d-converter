@@ -24,18 +24,18 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _DepthTex:
-        m_Texture: {fileID: 2800000, guid: 99d824ee78c821349aa2a6e0c3b933d9, type: 3}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 8400000, guid: 66c8b5015e764bf46a012b097eb1c3ce, type: 2}
+        m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _DepthFactor: 0.01
-    - _LeftShift: 0.01
+    - _DepthFactor: 0.02
+    - _LeftShift: 0.02
     - _Offset: 0.01
-    - _RightShift: -0.01
+    - _RightShift: -0.02
     m_Colors: []
   m_BuildTextureStacks: []
